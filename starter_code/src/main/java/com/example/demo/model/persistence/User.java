@@ -13,6 +13,8 @@ import javax.persistence.Table;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Objects;
+
 
 @Entity
 @Table(name = "user")
@@ -35,7 +37,29 @@ public class User {
     @JoinColumn(name = "cart_id", referencedColumnName = "id")
 	@JsonIgnore
     private Cart cart;
-	
+
+	public User() {
+	}
+
+	public User(long id, String username, String password) {
+		this.id = id;
+		this.username = username;
+		this.password = password;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		User user = (User) o;
+		return Objects.equals(username, user.username) && Objects.equals(password, user.password);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(username, password);
+	}
+
 	public Cart getCart() {
 		return cart;
 	}
