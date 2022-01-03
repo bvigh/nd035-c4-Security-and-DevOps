@@ -45,19 +45,29 @@ public class UserController {
 	
 	@PostMapping("/create")
 	public ResponseEntity<User> createUser(@RequestBody CreateUserRequest createUserRequest) {
+		// check username
+		if (createUserRequest.getUsername() == null
+		|| createUserRequest.getUsername().trim().isEmpty()) {
+			return ResponseEntity.badRequest().build();
+		}
+
+		// check password
+		if (createUserRequest.getPassword().length() < 7
+				|| !createUserRequest.getPassword().equals(createUserRequest.getConfirmPassword())) {
+			return ResponseEntity.badRequest().build();
+		}
+
+		// create user
 		User user = new User();
 		user.setUsername(createUserRequest.getUsername());
 		Cart cart = new Cart();
 		cartRepository.save(cart);
 		user.setCart(cart);
 
-		if (createUserRequest.getPassword().length() < 7
-				|| !createUserRequest.getPassword().equals(createUserRequest.getConfirmPassword())) {
-			return ResponseEntity.badRequest().build();
-		}
-
+		// hash password
 		user.setPassword(bCryptPasswordEncoder.encode(createUserRequest.getPassword()));
 
+		// persist user
 		user = userRepository.save(user);
 		return ResponseEntity.ok(user);
 	}
