@@ -11,30 +11,37 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.nio.charset.Charset;
+import java.util.stream.Stream;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 
-@RunWith(SpringRunner.class)
+@ExtendWith(SpringExtension.class)
 @WebMvcTest(UserController.class)
 @ContextConfiguration
 public class UserControllerTest {
@@ -69,15 +76,16 @@ public class UserControllerTest {
         when(bCryptPasswordEncoder.encode(anyString())).thenReturn("stubbedEncodedPassword");
     }
 
-    @Test
-    @WithMockUser("logaran")
-    public void createUser() throws Exception {
-        User user = new User(1L, "testuser", "testpassw");
-        CreateUserRequest userRequest = new CreateUserRequest(
-                user.getUsername(),
-                user.getPassword(),
-                user.getPassword());
+    @ParameterizedTest
+    @WithMockUser("mockuser")
+    @MethodSource("provideUsers")
+    public void createUser(
+            long id,
+            CreateUserRequest userRequest,
+            HttpStatus expectedHttpStatus)
+            throws Exception {
 
+        User user = new User(id, userRequest.getUsername(), userRequest.getPassword());
 
         when(userRepository.save(any())).thenReturn(user);
 
@@ -85,18 +93,47 @@ public class UserControllerTest {
         String userRequestStr = objectMapper.writeValueAsString(userRequest);
 
         MvcResult result = mockMvc.perform(post("/api/user/create")
-                .contentType(APPLICATION_JSON_UTF8)
-                .content(userRequestStr))
-                        .andExpect(status().isOk())
-                                .andReturn();
+                        .contentType(APPLICATION_JSON_UTF8)
+                        .content(userRequestStr))
+                .andExpect(status().is(expectedHttpStatus.value()))
+                .andReturn();
 
-        String response = result.getResponse().getContentAsString();
-        String responseUsername = JsonPath.parse(response).read("$.username");
-        int responseUserId = JsonPath.parse(response).read("$.id");
-        assertEquals(user.getUsername(), responseUsername);
-        assertEquals(user.getId(), responseUserId);
+        if (expectedHttpStatus.is2xxSuccessful()) {
+            String response = result.getResponse().getContentAsString();
+            String responseUsername = JsonPath.parse(response).read("$.username");
+            int responseUserId = JsonPath.parse(response).read("$.id");
+            assertEquals(user.getUsername(), responseUsername);
+            assertEquals(user.getId(), responseUserId);
 
+            verify(userRepository, times(1)).save(any());
+        } else {
+            verify(userRepository, times(0)).save(any());
+        }
 
-        verify(userRepository, times(1)).save(any());
+    }
+
+    private static Stream<Arguments> provideUsers() {
+        return Stream.of(
+                Arguments.of(
+                        1L,
+                        new CreateUserRequest("jack", "testpassw", "testpassw"),
+                        HttpStatus.OK),
+                Arguments.of(
+                        2L,
+                        new CreateUserRequest( "jenny", "test", "test"),
+                        HttpStatus.BAD_REQUEST),
+                Arguments.of(
+                        3L,
+                        new CreateUserRequest("tom", "testpassw", "somethingelse"),
+                        HttpStatus.BAD_REQUEST),
+                Arguments.of(
+                        4L,
+                        new CreateUserRequest("", "testpassw", "testpassw"),
+                        HttpStatus.BAD_REQUEST),
+                Arguments.of(
+                        5L,
+                        new CreateUserRequest(null, "testpassw", "testpassw"),
+                        HttpStatus.BAD_REQUEST)
+        );
     }
 }
