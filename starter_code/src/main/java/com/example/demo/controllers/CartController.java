@@ -45,8 +45,8 @@ public class CartController {
 		Cart cart = user.getCart();
 		IntStream.range(0, request.getQuantity())
 			.forEach(i -> cart.addItem(item.get()));
-		cartRepository.save(cart);
-		return ResponseEntity.ok(cart);
+		Cart managedCart = cartRepository.save(cart);
+		return ResponseEntity.ok(managedCart);
 	}
 	
 	@PostMapping("/removeFromCart")
@@ -62,8 +62,8 @@ public class CartController {
 		Cart cart = user.getCart();
 		IntStream.range(0, request.getQuantity())
 			.forEach(i -> cart.removeItem(item.get()));
-		cartRepository.save(cart);
-		return ResponseEntity.ok(cart);
+		Cart managedCart = cartRepository.save(cart);
+		return ResponseEntity.ok(managedCart);
 	}
 		
 }
