@@ -28,6 +28,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.nio.charset.Charset;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.junit.Assert.assertEquals;
@@ -38,10 +39,11 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 
-@ExtendWith(SpringExtension.class)
+@RunWith(SpringRunner.class)
 @WebMvcTest(UserController.class)
 @ContextConfiguration
 public class UserControllerTest {
@@ -76,8 +78,80 @@ public class UserControllerTest {
         when(bCryptPasswordEncoder.encode(anyString())).thenReturn("stubbedEncodedPassword");
     }
 
+    @Test
+    @WithMockUser
+    public void findById_found() throws Exception {
+        long userId = 1L;
+        User user = new User(userId, "testuser", "testpassw");
+        Optional<User> optionalUser = Optional.of(user);
+
+        when(userRepository.findById(userId)).thenReturn(optionalUser);
+
+        MvcResult result = mockMvc.perform(get("/api/user/id/" + userId))
+                .andExpect(status().isOk())
+                .andReturn();
+
+
+        String response = result.getResponse().getContentAsString();
+        String responseUsername = JsonPath.parse(response).read("$.username");
+        int responseUserId = JsonPath.parse(response).read("$.id");
+        assertEquals(user.getUsername(), responseUsername);
+        assertEquals(user.getId(), responseUserId);
+
+        verify(userRepository, times(1)).findById(userId);
+    }
+
+    @Test
+    @WithMockUser
+    public void findById_not_found() throws Exception {
+        long userId = 0L;
+        Optional<User> missingUser = Optional.empty();
+
+        when(userRepository.findById(userId)).thenReturn(missingUser);
+
+        mockMvc.perform(get("/api/user/id/" + userId))
+                .andExpect(status().isNotFound());
+
+        verify(userRepository, times(1)).findById(userId);
+    }
+
+    @Test
+    @WithMockUser
+    public void findByUserName_found() throws Exception {
+        String username = "anne";
+        User user = new User(1L, username, "testpassw");
+
+        when(userRepository.findByUsername(username)).thenReturn(user);
+
+        MvcResult result = mockMvc.perform(get("/api/user/" + username))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String response = result.getResponse().getContentAsString();
+        String responseUsername = JsonPath.parse(response).read("$.username");
+        int responseUserId = JsonPath.parse(response).read("$.id");
+        assertEquals(user.getUsername(), responseUsername);
+        assertEquals(user.getId(), responseUserId);
+
+        verify(userRepository, times(1)).findByUsername(username);
+    }
+
+    @Test
+    @WithMockUser
+    public void findByUserName_not_found() throws Exception {
+        String username = "stephen";
+        User user = null;
+
+        when(userRepository.findByUsername(username)).thenReturn(user);
+
+        mockMvc.perform(get("/api/user/" + username))
+                .andExpect(status().isNotFound());
+
+        verify(userRepository, times(1)).findByUsername(username);
+    }
+
     @ParameterizedTest
-    @WithMockUser("mockuser")
+    @WithMockUser
     @MethodSource("provideUsers")
     public void createUser(
             long id,
