@@ -11,7 +11,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,8 +20,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -45,7 +42,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @RunWith(SpringRunner.class)
 @WebMvcTest(UserController.class)
-@ContextConfiguration
 public class UserControllerTest {
 
     private static final MediaType APPLICATION_JSON_UTF8 = new MediaType(
@@ -73,9 +69,15 @@ public class UserControllerTest {
     @MockBean
     UserDetailsServiceImpl userDetailsService;
 
+    private final ObjectMapper objectMapper;
+
+    public UserControllerTest() {
+        objectMapper = new ObjectMapper();
+    }
+
     @Before
     public void beforeEach() {
-        when(bCryptPasswordEncoder.encode(anyString())).thenReturn("stubbedEncodedPassword");
+        when(bCryptPasswordEncoder.encode(anyString())).thenReturn(STUBBED_ENCODED_PASSWORD);
     }
 
     @Test
@@ -163,7 +165,7 @@ public class UserControllerTest {
 
         when(userRepository.save(any())).thenReturn(user);
 
-        ObjectMapper objectMapper = new ObjectMapper();
+
         String userRequestStr = objectMapper.writeValueAsString(userRequest);
 
         MvcResult result = mockMvc.perform(post("/api/user/create")
