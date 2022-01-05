@@ -108,6 +108,36 @@ public class SareetaApplicationTests {
 	}
 
 	@Test
+	public void login_unknown_user() throws Exception {
+		// create credentials for login
+		String loginStr = new JSONObject()
+				.put("username", "jock")
+				.put("password", "passsssswwwwwwww")
+				.toString();
+
+		// login user
+		mockMvc.perform(post("/login")
+						.contentType(APPLICATION_JSON_UTF8)
+						.content(loginStr))
+				.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	public void login_wrong_password() throws Exception {
+		// create credentials for login
+		String loginStr = new JSONObject()
+				.put("username", "jenny")
+				.put("password", "passsssswwwwwwww")
+				.toString();
+
+		// login user
+		mockMvc.perform(post("/login")
+						.contentType(APPLICATION_JSON_UTF8)
+						.content(loginStr))
+				.andExpect(status().isUnauthorized());
+	}
+
+	@Test
 	public void order() throws Exception {
 		// create credentials for signup
 		CreateUserRequest userRequest = new CreateUserRequest("jack", "testpassw", "testpassw");
