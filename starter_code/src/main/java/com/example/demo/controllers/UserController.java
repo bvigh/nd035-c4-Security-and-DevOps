@@ -1,9 +1,8 @@
 package com.example.demo.controllers;
 
-import java.util.Optional;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +21,8 @@ import com.example.demo.model.requests.CreateUserRequest;
 @RestController
 @RequestMapping("/api/user")
 public class UserController {
+
+	final private Logger logger = LoggerFactory.getLogger(UserController.class);
 	
 	@Autowired
 	private UserRepository userRepository;
@@ -48,12 +49,14 @@ public class UserController {
 		// check username
 		if (createUserRequest.getUsername() == null
 		|| createUserRequest.getUsername().trim().isEmpty()) {
+			logger.info("User could not be created, because username is empty.");
 			return ResponseEntity.badRequest().build();
 		}
 
 		// check password
 		if (createUserRequest.getPassword().length() < 7
 				|| !createUserRequest.getPassword().equals(createUserRequest.getConfirmPassword())) {
+			logger.info("User could not be created, because passwords don't match.");
 			return ResponseEntity.badRequest().build();
 		}
 
@@ -69,6 +72,9 @@ public class UserController {
 
 		// persist user
 		user = userRepository.save(user);
+
+		logger.info("User created with username={}", user.getUsername());
+
 		return ResponseEntity.ok(user);
 	}
 	
