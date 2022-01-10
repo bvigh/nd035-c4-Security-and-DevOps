@@ -2,11 +2,11 @@ package com.example.demo.util;
 
 import com.example.demo.model.persistence.Item;
 
-public class Pair {
+public class ItemCount {
     Item item;
     Integer count;
 
-    public Pair(Item item, Integer count) {
+    public ItemCount(Item item, Integer count) {
         this.item = item;
         this.count = count;
     }

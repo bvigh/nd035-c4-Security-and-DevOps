@@ -41,7 +41,7 @@ public class OrderController {
 		}
 		UserOrder order = UserOrder.createFromCart(user.getCart());
 		order = orderRepository.save(order);
-		logger.info("Order {} has been placed.", order.getId());
+		logger.info("Order {} has been placed for user={}", order.getId(), user.getUsername());
 		return ResponseEntity.ok(order);
 	}
 	
