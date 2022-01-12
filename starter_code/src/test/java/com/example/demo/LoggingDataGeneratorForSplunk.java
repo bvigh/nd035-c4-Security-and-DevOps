@@ -77,15 +77,22 @@ public class LoggingDataGeneratorForSplunk {
 
     @ParameterizedTest
     @MethodSource("provideData")
-    public void order(CreateUserRequest userRequest, List<List<ItemCount>> orders) throws Exception {
+    public void bulkOrder(
+            CreateUserRequest userRequest,
+            HttpStatus httpStatusSignup,
+            HttpStatus httpStatusLogin,
+            List<List<ItemCount>> orders) throws Exception {
         // create credentials for signup
         String userRequestStr = objectMapper.writeValueAsString(userRequest);
 
         // singup user
-        mockMvc.perform(post("/api/user/create")
+        MvcResult result;
+        result = mockMvc.perform(post("/api/user/create")
                         .contentType(APPLICATION_JSON_UTF8)
-                        .content(userRequestStr));
+                        .content(userRequestStr))
+                .andReturn();
 
+        assertEquals(httpStatusSignup.value(), result.getResponse().getStatus());
 
         // create credentials for login
         String loginStr = new JSONObject()
@@ -94,12 +101,16 @@ public class LoggingDataGeneratorForSplunk {
                 .toString();
 
         // login user
-        MvcResult result = mockMvc.perform(post("/login")
+        result = mockMvc.perform(post("/login")
                         .contentType(APPLICATION_JSON_UTF8)
                         .content(loginStr))
                 .andReturn();
 
-        if (result.getResponse().getStatus() == HttpStatus.OK.value()) {
+        assertEquals(httpStatusLogin.value(), result.getResponse().getStatus());
+
+
+        if (httpStatusLogin.is2xxSuccessful()) {
+            assertEquals(HttpStatus.OK.value(), result.getResponse().getStatus());
             // get the JWT token
             String bearer = result.getResponse().getHeader(HttpHeaders.AUTHORIZATION);
             assertNotNull(bearer);
@@ -107,11 +118,15 @@ public class LoggingDataGeneratorForSplunk {
 
 
             for (List<ItemCount> order : orders) {
+                // variable to track the total value
+                BigDecimal totalPrice = BigDecimal.ZERO;
+
                 // add items to cart
                 for (ItemCount itemCount : order) {
                     Item item = itemCount.getItem();
                     Integer count = itemCount.getCount();
-                    BigDecimal totalPrice = item.getPrice().multiply(BigDecimal.valueOf(count));
+                    // update the the total value
+                    totalPrice = totalPrice.add(item.getPrice().multiply(BigDecimal.valueOf(count)));
                     ModifyCartRequest cartRequest = new ModifyCartRequest();
                     cartRequest.setUsername(userRequest.getUsername());
                     cartRequest.setItemId(item.getId());
@@ -130,6 +145,9 @@ public class LoggingDataGeneratorForSplunk {
                                 .header(HttpHeaders.AUTHORIZATION, bearer))
                         .andExpect(status().isOk())
                         .andReturn();
+
+                DocumentContext documentContext = JsonPath.parse(result.getResponse().getContentAsString());
+                assertEquals(totalPrice, documentContext.read("$.total", BigDecimal.class));
             }
         }
     }
@@ -138,6 +156,7 @@ public class LoggingDataGeneratorForSplunk {
         return Stream.of(
                 Arguments.of(
                         new CreateUserRequest( "jackie", "passw1234", "passw1234"),
+                        HttpStatus.OK, HttpStatus.OK,
                         Arrays.asList(
                                 Arrays.asList(
                                         new ItemCount(ITEM_1, 2),
@@ -154,6 +173,7 @@ public class LoggingDataGeneratorForSplunk {
                 ),
                 Arguments.of(
                         new CreateUserRequest("thomas", "passw1234", "passw1234"),
+                        HttpStatus.OK, HttpStatus.OK,
                         Arrays.asList(
                                 Arrays.asList(
                                         new ItemCount(ITEM_3, 1),
@@ -179,13 +199,16 @@ public class LoggingDataGeneratorForSplunk {
                         )
                 ),
                 Arguments.of(
-                        new CreateUserRequest("anne", "password11", "11password"), null
+                        new CreateUserRequest("anne", "password11", "11password"),
+                        HttpStatus.BAD_REQUEST, HttpStatus.UNAUTHORIZED, null
                 ),
                 Arguments.of(
-                        new CreateUserRequest("john", "pass", "pass"), null
+                        new CreateUserRequest("john", "pass", "pass"),
+                        HttpStatus.BAD_REQUEST, HttpStatus.UNAUTHORIZED, null
                 ),
                 Arguments.of(
                         new CreateUserRequest("alain", "passw1234", "passw1234"),
+                        HttpStatus.OK, HttpStatus.OK,
                         Arrays.asList(
                                 Arrays.asList(
                                     new ItemCount(ITEM_3, 3),
@@ -194,16 +217,20 @@ public class LoggingDataGeneratorForSplunk {
                         )
                 ),
                 Arguments.of(
-                        new CreateUserRequest("", "password11", "password11"), null
+                        new CreateUserRequest("", "password11", "password11"),
+                        HttpStatus.BAD_REQUEST, HttpStatus.UNAUTHORIZED, null
                 ),
                 Arguments.of(
-                        new CreateUserRequest("anne1", "password11", "11password"), null
+                        new CreateUserRequest("anne1", "password11", "11password"),
+                        HttpStatus.BAD_REQUEST, HttpStatus.UNAUTHORIZED, null
                 ),
                 Arguments.of(
-                        new CreateUserRequest("john1", "pass", "pass"), null
+                        new CreateUserRequest("john1", "pass", "pass"),
+                        HttpStatus.BAD_REQUEST, HttpStatus.UNAUTHORIZED, null
                 ),
                 Arguments.of(
                         new CreateUserRequest("daniel", "passw1234", "passw1234"),
+                        HttpStatus.OK, HttpStatus.OK,
                         Arrays.asList(
                                 Arrays.asList(
                                         new ItemCount(ITEM_1, 1),
@@ -217,16 +244,20 @@ public class LoggingDataGeneratorForSplunk {
                         )
                 ),
                 Arguments.of(
-                        new CreateUserRequest("  ", "password1234", "password1234"), null
+                        new CreateUserRequest("  ", "password1234", "password1234"),
+                        HttpStatus.BAD_REQUEST, HttpStatus.UNAUTHORIZED, null
                 ),
                 Arguments.of(
-                        new CreateUserRequest("anne", "password11", "11password"), null
+                        new CreateUserRequest("anne", "password11", "11password"),
+                        HttpStatus.BAD_REQUEST, HttpStatus.UNAUTHORIZED, null
                 ),
                 Arguments.of(
-                        new CreateUserRequest("anne", "pass", "pass"), null
+                        new CreateUserRequest("anne", "pass", "pass"),
+                        HttpStatus.BAD_REQUEST, HttpStatus.UNAUTHORIZED, null
                 ),
                 Arguments.of(
                         new CreateUserRequest("zack", "passw1234", "passw1234"),
+                        HttpStatus.OK, HttpStatus.OK,
                         Arrays.asList(
                                 Arrays.asList(
                                         new ItemCount(ITEM_2, 1),

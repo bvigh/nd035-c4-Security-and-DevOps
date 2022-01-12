@@ -1,5 +1,7 @@
 package com.example.demo.controllers;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -30,6 +32,9 @@ public class OrderController {
 	
 	@Autowired
 	private OrderRepository orderRepository;
+
+	@Autowired
+	private CartRepository cartRepository;
 	
 	
 	@PostMapping("/submit/{username}")
@@ -41,7 +46,15 @@ public class OrderController {
 		}
 		UserOrder order = UserOrder.createFromCart(user.getCart());
 		order = orderRepository.save(order);
-		logger.info("Order {} has been placed for user={}", order.getId(), user.getUsername());
+
+		logger.info("order={} with a total={} has been placed for user={}", order.getId(), order.getTotal(), user.getUsername());
+
+		// empty the cart
+		Cart cart = user.getCart();
+		cart.setItems(new ArrayList<>());
+		cart.setTotal(BigDecimal.ZERO);
+		cartRepository.save(cart);
+
 		return ResponseEntity.ok(order);
 	}
 	
