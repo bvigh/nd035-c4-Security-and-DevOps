@@ -49,17 +49,17 @@ public class UserController {
 		// check username
 		if (createUserRequest.getUsername() == null
 		|| createUserRequest.getUsername().trim().isEmpty()) {
-			logger.info("User could not be created, because username is empty.");
+			logger.warn("User could not be created, because username is empty.");
 			return ResponseEntity.badRequest().build();
 		}
 
 		// check password
 		if (!createUserRequest.getPassword().equals(createUserRequest.getConfirmPassword())) {
-			logger.info("User could not be created, because passwords don't match.");
+			logger.warn("User could not be created, because passwords don't match.");
 			return ResponseEntity.badRequest().build();
 		}
 		if (createUserRequest.getPassword().length() < 7) {
-			logger.info("User could not be created, because the password is too short.");
+			logger.warn("User could not be created, because the password is too short.");
 			return ResponseEntity.badRequest().build();
 		}
 
