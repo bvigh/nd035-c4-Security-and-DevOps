@@ -18,6 +18,7 @@ import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.context.web.WebAppConfiguration;
@@ -50,6 +51,8 @@ public class LoggingDataGeneratorForSplunk {
     // same as data.sql
     private static final Item ITEM_1 = new Item(1L, "Round Widget", BigDecimal.valueOf(2.99), "A widget that is round");
     private static final Item ITEM_2 = new Item(2L, "Square Widget", BigDecimal.valueOf(1.99), "A widget that is square");
+    private static final Item ITEM_3 = new Item(3L, "Cuberdon", BigDecimal.valueOf(3.2), "cone-shaped candy with a melty core and a crisp crust");
+    private static final Item ITEM_4 = new Item(4L, "Vanparys", BigDecimal.valueOf(2.5), "coated with thin layers of sugar, and made in 50 colors");
 
     private MockMvc mockMvc;
 
@@ -74,16 +77,14 @@ public class LoggingDataGeneratorForSplunk {
 
     @ParameterizedTest
     @MethodSource("provideData")
-    public void order(User user, List<List<ItemCount>> orders) throws Exception {
+    public void order(CreateUserRequest userRequest, List<List<ItemCount>> orders) throws Exception {
         // create credentials for signup
-        CreateUserRequest userRequest = new CreateUserRequest(user.getUsername(), user.getPassword(), user.getPassword());
         String userRequestStr = objectMapper.writeValueAsString(userRequest);
 
         // singup user
         mockMvc.perform(post("/api/user/create")
                         .contentType(APPLICATION_JSON_UTF8)
-                        .content(userRequestStr))
-                .andExpect(status().isOk());
+                        .content(userRequestStr));
 
 
         // create credentials for login
@@ -96,46 +97,47 @@ public class LoggingDataGeneratorForSplunk {
         MvcResult result = mockMvc.perform(post("/login")
                         .contentType(APPLICATION_JSON_UTF8)
                         .content(loginStr))
-                .andExpect(status().isOk())
                 .andReturn();
 
-        // get the JWT token
-        String bearer = result.getResponse().getHeader(HttpHeaders.AUTHORIZATION);
-        assertNotNull(bearer);
-        assertTrue(bearer.startsWith("Bearer "));
+        if (result.getResponse().getStatus() == HttpStatus.OK.value()) {
+            // get the JWT token
+            String bearer = result.getResponse().getHeader(HttpHeaders.AUTHORIZATION);
+            assertNotNull(bearer);
+            assertTrue(bearer.startsWith("Bearer "));
 
-        // add items to cart
 
-        for (List<ItemCount> order : orders) {
-            for (ItemCount itemCount : order) {
-                Item item = itemCount.getItem();
-                Integer count = itemCount.getCount();
-                BigDecimal totalPrice = item.getPrice().multiply(BigDecimal.valueOf(count));
-                ModifyCartRequest cartRequest = new ModifyCartRequest();
-                cartRequest.setUsername(userRequest.getUsername());
-                cartRequest.setItemId(item.getId());
-                cartRequest.setQuantity(count);
+            for (List<ItemCount> order : orders) {
+                // add items to cart
+                for (ItemCount itemCount : order) {
+                    Item item = itemCount.getItem();
+                    Integer count = itemCount.getCount();
+                    BigDecimal totalPrice = item.getPrice().multiply(BigDecimal.valueOf(count));
+                    ModifyCartRequest cartRequest = new ModifyCartRequest();
+                    cartRequest.setUsername(userRequest.getUsername());
+                    cartRequest.setItemId(item.getId());
+                    cartRequest.setQuantity(count);
 
-                result = mockMvc.perform(post("/api/cart/addToCart")
-                                .header(HttpHeaders.AUTHORIZATION, bearer)
-                                .contentType(APPLICATION_JSON_UTF8)
-                                .content(objectMapper.writeValueAsString(cartRequest)))
+                    result = mockMvc.perform(post("/api/cart/addToCart")
+                                    .header(HttpHeaders.AUTHORIZATION, bearer)
+                                    .contentType(APPLICATION_JSON_UTF8)
+                                    .content(objectMapper.writeValueAsString(cartRequest)))
+                            .andExpect(status().isOk())
+                            .andReturn();
+
+                }
+                // submit order
+                result = mockMvc.perform(post("/api/order/submit/" + userRequest.getUsername())
+                                .header(HttpHeaders.AUTHORIZATION, bearer))
                         .andExpect(status().isOk())
                         .andReturn();
-
             }
-            // submit order
-            result = mockMvc.perform(post("/api/order/submit/" + userRequest.getUsername())
-                            .header(HttpHeaders.AUTHORIZATION, bearer))
-                    .andExpect(status().isOk())
-                    .andReturn();
         }
     }
 
     private static Stream<Arguments> provideData() {
         return Stream.of(
                 Arguments.of(
-                        new User(2L, "jackie", "passw1234"),
+                        new CreateUserRequest( "jackie", "passw1234", "passw1234"),
                         Arrays.asList(
                                 Arrays.asList(
                                         new ItemCount(ITEM_1, 2),
@@ -147,6 +149,97 @@ public class LoggingDataGeneratorForSplunk {
                                 ),
                                 Arrays.asList(
                                         new ItemCount(ITEM_1, 2)
+                                )
+                        )
+                ),
+                Arguments.of(
+                        new CreateUserRequest("thomas", "passw1234", "passw1234"),
+                        Arrays.asList(
+                                Arrays.asList(
+                                        new ItemCount(ITEM_3, 1),
+                                        new ItemCount(ITEM_2, 2),
+                                        new ItemCount(ITEM_3, 2),
+                                        new ItemCount(ITEM_2, 1)
+                                ),
+                                Arrays.asList(
+                                        new ItemCount(ITEM_1, 1),
+                                        new ItemCount(ITEM_3, 4),
+                                        new ItemCount(ITEM_4, 1)
+                                ),
+                                Arrays.asList(
+                                        new ItemCount(ITEM_4, 4),
+                                        new ItemCount(ITEM_3, 5)
+                                ),
+                                Arrays.asList(
+                                        new ItemCount(ITEM_1, 1),
+                                        new ItemCount(ITEM_2, 1),
+                                        new ItemCount(ITEM_3, 1),
+                                        new ItemCount(ITEM_4, 1)
+                                )
+                        )
+                ),
+                Arguments.of(
+                        new CreateUserRequest("anne", "password11", "11password"), null
+                ),
+                Arguments.of(
+                        new CreateUserRequest("john", "pass", "pass"), null
+                ),
+                Arguments.of(
+                        new CreateUserRequest("alain", "passw1234", "passw1234"),
+                        Arrays.asList(
+                                Arrays.asList(
+                                    new ItemCount(ITEM_3, 3),
+                                    new ItemCount(ITEM_2, 2)
+                                )
+                        )
+                ),
+                Arguments.of(
+                        new CreateUserRequest("", "password11", "password11"), null
+                ),
+                Arguments.of(
+                        new CreateUserRequest("anne1", "password11", "11password"), null
+                ),
+                Arguments.of(
+                        new CreateUserRequest("john1", "pass", "pass"), null
+                ),
+                Arguments.of(
+                        new CreateUserRequest("daniel", "passw1234", "passw1234"),
+                        Arrays.asList(
+                                Arrays.asList(
+                                        new ItemCount(ITEM_1, 1),
+                                        new ItemCount(ITEM_1, 1),
+                                        new ItemCount(ITEM_4, 6)
+                                ),
+                                Arrays.asList(
+                                        new ItemCount(ITEM_3, 2),
+                                        new ItemCount(ITEM_4, 1)
+                                )
+                        )
+                ),
+                Arguments.of(
+                        new CreateUserRequest("  ", "password1234", "password1234"), null
+                ),
+                Arguments.of(
+                        new CreateUserRequest("anne", "password11", "11password"), null
+                ),
+                Arguments.of(
+                        new CreateUserRequest("anne", "pass", "pass"), null
+                ),
+                Arguments.of(
+                        new CreateUserRequest("zack", "passw1234", "passw1234"),
+                        Arrays.asList(
+                                Arrays.asList(
+                                        new ItemCount(ITEM_2, 1),
+                                        new ItemCount(ITEM_1, 1),
+                                        new ItemCount(ITEM_4, 1)
+                                ),
+                                Arrays.asList(
+                                        new ItemCount(ITEM_2, 2),
+                                        new ItemCount(ITEM_4, 5)
+                                ),
+                                Arrays.asList(
+                                        new ItemCount(ITEM_1, 1),
+                                        new ItemCount(ITEM_4, 4)
                                 )
                         )
                 )

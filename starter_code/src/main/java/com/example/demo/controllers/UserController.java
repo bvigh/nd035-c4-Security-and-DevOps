@@ -54,9 +54,12 @@ public class UserController {
 		}
 
 		// check password
-		if (createUserRequest.getPassword().length() < 7
-				|| !createUserRequest.getPassword().equals(createUserRequest.getConfirmPassword())) {
+		if (!createUserRequest.getPassword().equals(createUserRequest.getConfirmPassword())) {
 			logger.info("User could not be created, because passwords don't match.");
+			return ResponseEntity.badRequest().build();
+		}
+		if (createUserRequest.getPassword().length() < 7) {
+			logger.info("User could not be created, because the password is too short.");
 			return ResponseEntity.badRequest().build();
 		}
 

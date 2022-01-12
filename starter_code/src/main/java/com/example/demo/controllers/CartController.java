@@ -53,8 +53,8 @@ public class CartController {
 			.forEach(i -> cart.addItem(item.get()));
 		Cart managedCart = cartRepository.save(cart);
 
-		logger.info("item={} added times={} to the cart of user={}, which has a new total={}",
-				item.get().getId(), request.getQuantity(), user.getUsername(), cart.getTotal());
+		logger.info("item={} added times={} to the cart of user={}",
+				item.get().getId(), request.getQuantity(), user.getUsername());
 
 		return ResponseEntity.ok(managedCart);
 	}
