@@ -84,7 +84,7 @@ public class SareetaApplicationTests {
 	@Test
 	public void request_without_token() throws Exception {
 		mockMvc.perform(get("/api/item"))
-				.andExpect(status().isForbidden());
+				.andExpect(status().isUnauthorized());
 	}
 
 	@Test
@@ -104,7 +104,7 @@ public class SareetaApplicationTests {
 
 		mockMvc.perform(get("/api/item")
 						.header(HttpHeaders.AUTHORIZATION, bearer))
-				.andExpect(status().isForbidden());
+				.andExpect(status().isUnauthorized());
 	}
 
 	@Test
@@ -135,6 +135,21 @@ public class SareetaApplicationTests {
 						.contentType(APPLICATION_JSON_UTF8)
 						.content(loginStr))
 				.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	public void login_success() throws Exception {
+		// create credentials for login
+		String loginStr = new JSONObject()
+				.put("username", "jenny")
+				.put("password", "pass1234")
+				.toString();
+
+		// login user
+		mockMvc.perform(post("/login")
+						.contentType(APPLICATION_JSON_UTF8)
+						.content(loginStr))
+				.andExpect(status().isOk());
 	}
 
 	@Test
